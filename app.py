@@ -1,6 +1,6 @@
 import sys
-import pysqlite3
-sys.modules["sqlite3"] = pysqlite3
+import sqlite3
+sys.modules["sqlite3"] = sqlite3
 import streamlit as st
 import os
 import shutil
@@ -11,6 +11,10 @@ from chat.engine import create_chat_engine
 from config.settings import add_api_key
 from google.genai.errors import ServerError
 import nest_asyncio
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 nest_asyncio.apply()
 
@@ -99,6 +103,10 @@ if "setup_course_name" not in st.session_state:
     st.session_state.setup_course_name = ""
 if "custom_course_name" not in st.session_state:
     st.session_state.custom_course_name = ""
+if "setup_password_verified" not in st.session_state:
+    st.session_state.setup_password_verified = False
+if "show_password_modal" not in st.session_state:
+    st.session_state.show_password_modal = False
 
 # --------------------------- HEADER ----------------------------------
 
@@ -130,10 +138,45 @@ with st.sidebar:
     st.divider()
     st.header("📚 Course Management")
 
-    # Setup Mode Toggle
-    if st.button("➕ Add New Course", key="add_course_btn"):
-        st.session_state.show_setup_mode = True
-        st.rerun()
+    # Get password from environment
+    SETUP_PASSWORD = os.getenv("SETUP_PASSWORD", "admin123")
+
+    # Password-protected setup mode
+    if not st.session_state.setup_password_verified:
+        if st.button("➕ Add New Course", key="add_course_btn"):
+            st.session_state.show_password_modal = True
+            st.rerun()
+        
+        # Password modal
+        if st.session_state.show_password_modal:
+            st.subheader("🔒 Enter Setup Password")
+            password = st.text_input("Password:", type="password", key="password_input")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Verify", key="verify_password"):
+                    if password == SETUP_PASSWORD:
+                        st.session_state.setup_password_verified = True
+                        st.session_state.show_password_modal = False
+                        st.session_state.show_setup_mode = True
+                        st.success("✅ Access granted!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Incorrect password")
+            
+            with col2:
+                if st.button("❌ Cancel", key="cancel_password"):
+                    st.session_state.show_password_modal = False
+                    st.rerun()
+    else:
+        if st.button("➕ Add New Course", key="add_course_btn_verified"):
+            st.session_state.show_setup_mode = True
+            st.rerun()
+        
+        if st.button("🔒 Lock Setup", key="lock_setup"):
+            st.session_state.setup_password_verified = False
+            st.session_state.show_setup_mode = False
+            st.rerun()
 
     # Existing courses
     existing_courses = ["Algorithms", "Computer-Networks", "Theory-of-Automata"]
@@ -187,7 +230,7 @@ with st.sidebar:
 
 # ------------------------ SETUP MODE ---------------------------------
 
-if st.session_state.show_setup_mode:
+if st.session_state.show_setup_mode and st.session_state.setup_password_verified:
     st.header("🛠️ Course Setup Mode")
     
     col1, col2 = st.columns([3, 1])
@@ -251,7 +294,7 @@ if st.session_state.show_setup_mode:
             st.rerun()
         
         st.markdown("---")
-        st.markdown("**Note:** This setup mode will be hidden after deployment.")
+        st.markdown("**Note:** This setup mode is password protected.")
 
 # ------------------------ CHAT INTERFACE -----------------------------
 

@@ -13,4 +13,4 @@ transformers>=4.40.0
 torch>=2.0.0
 sentence-transformers>=2.2.2
 llama-index-embeddings-huggingface
-
+python-dotenv
